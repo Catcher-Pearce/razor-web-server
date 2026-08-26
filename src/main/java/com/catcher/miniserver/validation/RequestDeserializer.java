@@ -2,6 +2,8 @@ package com.catcher.miniserver.validation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.catcher.miniserver.exception.RequestBodyDeserializationException;
+import com.catcher.miniserver.exception.UnsupportedMediaTypeException;
 
 public class RequestDeserializer {
 
@@ -15,22 +17,24 @@ public class RequestDeserializer {
             String body,
             String contentType,
             Class<? extends RequestShape> requestShape
-    ) throws JsonProcessingException {
+    ) {
 
         if (requestShape == null) {
             return null;
         }
 
         if (contentType == null) {
-            throw new IllegalArgumentException("Missing Content-Type");
+            throw new UnsupportedMediaTypeException(null);
         }
 
         if (contentType.startsWith("application/json")) {
-            return objectMapper.readValue(body, requestShape);
+            try {
+                return objectMapper.readValue(body, requestShape);
+            } catch (JsonProcessingException e) {
+                throw new RequestBodyDeserializationException(e);
+            }
         }
 
-        throw new IllegalArgumentException(
-                "Unsupported Content-Type: " + contentType
-        );
+        throw new UnsupportedMediaTypeException(contentType);
     }
 }

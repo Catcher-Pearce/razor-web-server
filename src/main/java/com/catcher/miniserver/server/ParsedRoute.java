@@ -1,4 +1,9 @@
 package com.catcher.miniserver.server;
 
-public class ParsedRoute {
+import java.util.List;
+
+public record ParsedRoute(
+        String path,
+        List<String> pathVariables
+) {
 }

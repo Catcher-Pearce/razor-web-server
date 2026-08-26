@@ -11,6 +11,11 @@ public class Main {
             return Response.ok("Hello World");
         });
 
+        server.get("/users/{userId}", (request) -> {
+            String userId = request.pathVariables().get("userId");
+            return Response.ok("User ID: " + userId);
+        });
+
         server.start();
     }
 }

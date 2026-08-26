@@ -1,5 +1,7 @@
 package com.catcher.miniserver.http;
 
+import com.catcher.miniserver.exception.MalformedHttpRequestException;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -69,7 +71,7 @@ public class HttpParser {
                     nextByte = inputStream.read();
 
                     if (nextByte == -1) {
-                        throw new RuntimeException("Unexpected end of stream while reading request body");
+                        throw new MalformedHttpRequestException("Unexpected end of stream while reading request body");
                     }
 
                     buffer.write(nextByte);
@@ -87,6 +89,10 @@ public class HttpParser {
                     body
             );
 
+        } catch (MalformedHttpRequestException e) {
+            throw e;
+        } catch (IllegalArgumentException | IndexOutOfBoundsException | NullPointerException e) {
+            throw new MalformedHttpRequestException("Malformed HTTP request", e);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
