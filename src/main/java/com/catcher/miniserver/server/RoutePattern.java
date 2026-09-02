@@ -3,8 +3,16 @@ package com.catcher.miniserver.server;
 import com.catcher.miniserver.exception.InvalidRoutePatternException;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RoutePattern {
+    private static final Pattern LITERAL_SEGMENT = Pattern.compile("[A-Za-z0-9._~-]+");
+    private static final Pattern VARIABLE_SEGMENT = Pattern.compile("\\{([A-Za-z_][A-Za-z0-9_]*)}");
+
     private final String route;
 
     public RoutePattern(String route) {
@@ -12,51 +20,56 @@ public class RoutePattern {
     }
 
     public ParsedRoute serializeRoute() {
-        StringBuilder builder = new StringBuilder();
-        StringBuilder pathVariableBuilder = new StringBuilder();
-        ArrayList<String> pathVariables = new ArrayList<String>();
-        boolean inPathVariable = false;
-        if (route == null || route.isEmpty()) {
-            throw new InvalidRoutePatternException(route, "route cannot be empty");
+        validateRoute();
+
+        if (route.equals("/")) {
+            return new ParsedRoute("/", List.of());
         }
 
-        if (route.charAt(0) == '{') {
-            throw new InvalidRoutePatternException(route, "route must begin with a literal path segment");
-        }
+        String[] segments = route.substring(1).split("/", -1);
+        List<String> serializedSegments = new ArrayList<>();
+        List<String> pathVariables = new ArrayList<>();
+        Set<String> variableNames = new HashSet<>();
 
-        for (char c : route.toCharArray()) {
+        for (String segment : segments) {
+            Matcher variableMatcher = VARIABLE_SEGMENT.matcher(segment);
 
-            if (c == '{') {
-                if (inPathVariable) {
-                    throw new InvalidRoutePatternException(route, "nested path variables are not allowed");
+            if (variableMatcher.matches()) {
+                String variableName = variableMatcher.group(1);
+                if (!variableNames.add(variableName)) {
+                    throw invalid("duplicate path variable name: " + variableName);
                 }
-
-                pathVariableBuilder = new StringBuilder();
-                inPathVariable = true;
-                builder.append("{}");
-
-            } else if (c == '}') {
-                if (!inPathVariable || pathVariableBuilder.toString().isEmpty()) {
-                    throw new InvalidRoutePatternException(route, "path variable must have a name and matching braces");
-                }
-
-                inPathVariable = false;
-                pathVariables.add(pathVariableBuilder.toString());
-
-            } else if (!inPathVariable) {
-                builder.append(c);
+                serializedSegments.add("{}");
+                pathVariables.add(variableName);
+            } else if (LITERAL_SEGMENT.matcher(segment).matches()) {
+                serializedSegments.add(segment);
             } else {
-                pathVariableBuilder.append(c);
+                throw invalid("each path segment must be a literal or a path variable");
             }
         }
 
-        if (inPathVariable) {
-            throw new InvalidRoutePatternException(route, "path variable is missing a closing brace");
-        }
-
         return new ParsedRoute(
-                builder.toString(),
-                pathVariables
+                "/" + String.join("/", serializedSegments),
+                List.copyOf(pathVariables)
         );
+    }
+
+    private void validateRoute() {
+        if (route == null || route.isEmpty()) {
+            throw invalid("route cannot be empty");
+        }
+        if (!route.startsWith("/")) {
+            throw invalid("route must start with '/'");
+        }
+        if (route.length() > 1 && route.endsWith("/")) {
+            throw invalid("route cannot end with '/'");
+        }
+        if (route.contains("//")) {
+            throw invalid("route cannot contain empty path segments");
+        }
+    }
+
+    private InvalidRoutePatternException invalid(String reason) {
+        return new InvalidRoutePatternException(route, reason);
     }
 }

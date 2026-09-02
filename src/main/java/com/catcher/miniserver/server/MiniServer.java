@@ -3,6 +3,8 @@ package com.catcher.miniserver.server;
 import com.catcher.miniserver.validation.RequestShape;
 import com.catcher.miniserver.http.HttpMethod;
 
+import java.nio.file.Path;
+
 
 public class MiniServer {
     private final ServerEngine serverEngine;
@@ -10,12 +12,22 @@ public class MiniServer {
 
     public MiniServer(int port) {
         this.serverEngine = new ServerEngine(port, requestDispatcher);
+
+        Runtime.getRuntime().addShutdownHook(
+                new Thread(this::stop, "mini-server-shutdown"));
     }
 
     public void start() {
         serverEngine.start();
     }
 
+    public void stop() {
+        serverEngine.stop();
+    }
+
+    public void staticFiles(Path root) {
+        requestDispatcher.serveStaticFiles(root);
+    }
     public void get(String path, Handler handler) {
         requestDispatcher.createRoute(path, HttpMethod.GET, handler, null);
     }

@@ -7,7 +7,7 @@ It is still a work in progress, but the basic request-to-response path is up and
 ## What is implemented
 
 - A blocking TCP server built with `ServerSocket`
-- HTTP request parsing for the request line, headers, and `Content-Length` body
+- HTTP request parsing for the request line, headers, and `content-length` body
 - Support for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` methods
 - Exact-path, method-based route registration and dispatch
 - Lambda-based request handlers

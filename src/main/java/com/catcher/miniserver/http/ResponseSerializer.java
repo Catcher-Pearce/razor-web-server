@@ -11,11 +11,15 @@ public class ResponseSerializer {
     public byte[] serialize(HttpResponse response) throws JsonProcessingException {
         String contentType = response.headers().get("Content-Type");
 
+        if (response.body() instanceof byte[] bytes) {
+            return bytes;
+        }
+
         if (contentType.startsWith("application/json")) {
             return objectMapper.writeValueAsBytes(response.body());
         }
 
-        if (contentType.startsWith("text/plain")) {
+        if (contentType.startsWith("text/")) {
             return response.body().toString().getBytes(StandardCharsets.UTF_8);
         }
 

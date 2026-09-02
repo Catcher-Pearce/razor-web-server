@@ -12,29 +12,74 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 final class ServerEngine {
+    private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
     private final int port;
     private final RequestDispatcher requestDispatcher;
     private final ResponseWriter responseWriter = new ResponseWriter();
+    private final ExecutorService executor;
+    private volatile boolean running;
+    private volatile ServerSocket serverSocket;
 
     ServerEngine(int port, RequestDispatcher requestDispatcher) {
         this.port = port;
         this.requestDispatcher = requestDispatcher;
+        this.executor = buildExecutor();
     }
 
     void start() {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        running = true;
+
+        try (ServerSocket socket = new ServerSocket(port)) {
+            serverSocket = socket;
             System.out.println("Server listening on port " + port);
 
-            while (true) {
+            while (running) {
                 Socket clientSocket = serverSocket.accept();
-                handleClient(clientSocket);
+                executor.execute(() -> handleClient(clientSocket));
             }
 
         } catch (IOException e) {
             System.out.println("Server error: " + e.getMessage());
+        } finally {
+            running = false;
+            serverSocket = null;
+        }
+    }
+
+    void stop() {
+        running = false;
+        closeServerSocket();
+
+        executor.shutdown();
+
+        try {
+            if (!executor.awaitTermination(
+                    SHUTDOWN_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+            )) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException exception) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void closeServerSocket() {
+        ServerSocket socket = serverSocket;
+
+        if (socket != null && !socket.isClosed()) {
+            try {
+                socket.close();
+            } catch (IOException exception) {
+                System.err.println(
+                        "Failed to close server socket: " + exception.getMessage()
+                );
+            }
         }
     }
 
@@ -69,6 +114,26 @@ final class ServerEngine {
         } catch (IOException e) {
             System.out.println("Client error: " + e.getMessage());
         }
+}
+
+    private ExecutorService buildExecutor() {
+        int corePoolSize = 5;
+        int maxPoolSize = 10;
+        long keepAliveTime = 60L;
+
+        int queueCapacity = 100;
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(queueCapacity);
+
+        RejectedExecutionHandler rejectionHandler = new ThreadPoolExecutor.CallerRunsPolicy();
+
+        return new ThreadPoolExecutor(
+                corePoolSize,
+                maxPoolSize,
+                keepAliveTime,
+                TimeUnit.SECONDS,
+                workQueue,
+                rejectionHandler
+        );
     }
 
     private HttpResponse createErrorResponse(HttpException exception) {

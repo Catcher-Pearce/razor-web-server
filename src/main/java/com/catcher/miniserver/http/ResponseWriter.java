@@ -33,7 +33,7 @@ public class ResponseWriter {
         }
 
         responseBuilder
-                .append("Content-Length: ")
+                .append("content-length: ")
                 .append(bodyBytes.length)
                 .append("\r\n")
                 .append("\r\n");

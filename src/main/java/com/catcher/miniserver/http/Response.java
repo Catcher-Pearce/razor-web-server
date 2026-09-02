@@ -15,7 +15,7 @@ public class Response {
 
     public static HttpResponse noContent() {
         Map<String, String> headers = defaultHeaders();
-        headers.put("Content-Length", "0");
+        headers.put("content-length", "0");
 
         return new HttpResponse(204, defaultHeaders(), null);
     }
@@ -42,6 +42,14 @@ public class Response {
 
     public static HttpResponse status(int statusCode, Object body) {
         return new HttpResponse(statusCode, defaultHeaders(), body);
+    }
+
+    public static HttpResponse file(byte[] bytes, String contentType) {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", contentType);
+        headers.put("Connection", "close");
+
+        return new HttpResponse(200, headers, bytes);
     }
 
     private static Map<String, String> defaultHeaders() {
