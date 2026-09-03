@@ -16,7 +16,9 @@ public class RequestMapper {
     public ServerRequest map(
             Route route,
             HttpRequest request,
-            Map<String, String> pathVariables
+            Map<String, String> pathVariables,
+            Map<String, String> queryParams
+
     ) {
         Object body = request.body();
 
@@ -32,7 +34,7 @@ public class RequestMapper {
                 request.method(),
                 request.path(),
                 pathVariables,
-                null,
+                queryParams,
                 request.headers(),
                 body
         );

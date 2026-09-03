@@ -80,6 +80,9 @@ public final class StaticFileHandler {
         if (name.endsWith(".svg")) {
             return "image/svg+xml";
         }
+        if (name.endsWith(".pdf")) {
+            return "application/pdf";
+        }
 
         return "application/octet-stream";
     }

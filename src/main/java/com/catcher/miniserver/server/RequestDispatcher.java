@@ -66,12 +66,12 @@ public class RequestDispatcher {
 
         Route route = routeMatch.matchedRoute();
         Map<String, String> pathVariablesMap = new HashMap<>();
-
+        Map<String, String> queryParams = routeMatch.queryParameters();
         for (int i = 0; i < route.pathVariables().toArray().length; i++) {
             pathVariablesMap.put(route.pathVariables().get(i), routeMatch.pathVariables().get(i));
         }
 
-        ServerRequest serverRequest = requestMapper.map(route, request, pathVariablesMap);
+        ServerRequest serverRequest = requestMapper.map(route, request, pathVariablesMap, queryParams);
 
         return route.handler().handle(serverRequest);
     }

@@ -44,6 +44,7 @@ class StaticFileHandlerTest {
         assertArrayEquals(javascript, (byte[]) response.body());
     }
 
+
     @Test
     void returnsNotFoundForAMissingFile() {
         StaticFileHandler handler = new StaticFileHandler(root);

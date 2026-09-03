@@ -13,8 +13,12 @@ public class Main {
 
         server.get("/users/{userId}", (request) -> {
             String userId = request.pathVariables().get("userId");
-            return Response.ok("User ID: " + userId);
-        });
+            if (request.queryParams().containsKey("name")) {
+                return Response.ok("User ID: " + request.queryParams().get("name"));
+            }
+            return Response.badRequest("name query parameter required");
+            }
+        );
 
         server.start();
     }
