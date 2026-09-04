@@ -15,6 +15,10 @@ import java.net.Socket;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+/**
+ * Accepts TCP connections and dispatches each HTTP request to a bounded
+ * worker pool. Each connection handles one request and is then closed.
+ */
 final class ServerEngine {
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
     private final int port;
@@ -30,6 +34,11 @@ final class ServerEngine {
         this.executor = buildExecutor();
     }
 
+    /**
+     * Opens the server socket and dispatches accepted connections to the worker
+     * pool. This method blocks the calling thread until the server is stopped
+     * or the socket fails.
+     */
     void start() {
         running = true;
 
@@ -50,6 +59,10 @@ final class ServerEngine {
         }
     }
 
+    /**
+     * Stops accepting connections and allows active tasks to finish within the
+     * configured shutdown timeout before interrupting them.
+     */
     void stop() {
         running = false;
         closeServerSocket();
@@ -83,6 +96,12 @@ final class ServerEngine {
         }
     }
 
+    /**
+     * Parses and dispatches one request, writes its response, and then closes
+     * the client connection.
+     *
+     * @param clientSocket connected socket from which the request is read
+     */
     private void handleClient(Socket clientSocket) {
         try (clientSocket) {
             System.out.println(

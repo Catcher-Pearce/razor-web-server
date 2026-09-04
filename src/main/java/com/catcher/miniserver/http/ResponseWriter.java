@@ -13,7 +13,9 @@ public class ResponseWriter {
     }
 
     public byte[] write(HttpResponse response) throws JsonProcessingException {
-        byte[] bodyBytes = responseSerializer.serialize(response);
+        byte[] bodyBytes = response.status() == 204
+                ? new byte[0]
+                : responseSerializer.serialize(response);
 
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -25,6 +27,10 @@ public class ResponseWriter {
                  .append("\r\n");
 
         for (String key : response.headers().keySet()) {
+            if (key.equalsIgnoreCase("Content-Length")) {
+                continue;
+            }
+
             responseBuilder
                     .append(key)
                     .append(": ")
@@ -47,10 +53,6 @@ public class ResponseWriter {
 
         return responseBytes;
 
-    }
-
-    private byte[] buildResponse(HttpResponse response) {
-        return null;
     }
 
     private String getReasonPhrase(int statusCode) {

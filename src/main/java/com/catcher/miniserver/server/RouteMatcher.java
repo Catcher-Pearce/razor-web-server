@@ -75,7 +75,6 @@ class RouteMatcher {
                     matched = false;
                     break;
                 } else if (mappedRoute[i].equals("{}")) {
-                    // TODO: Define whether captured path variables should be URL-decoded.
                     pathVariables.add(requestRoute[i]);
                     currScore.add(0);
                 } else {

@@ -12,11 +12,16 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+
+/**
+ * Registers application routes and dispatches incoming HTTP requests to their
+ * handlers, with optional static-file fallback for unmatched GET requests.
+ */
 public class RequestDispatcher {
-    Map<String, Map<HttpMethod, Route>> routeMap;
-    RequestMapper requestMapper;
-    RouteMatcher routeMatcher;
-    StaticFileHandler staticFileHandler;
+    private Map<String, Map<HttpMethod, Route>> routeMap;
+    private RequestMapper requestMapper;
+    private RouteMatcher routeMatcher;
+    private StaticFileHandler staticFileHandler;
 
     public RequestDispatcher() {
         this.routeMap = new HashMap<>();
@@ -24,9 +29,18 @@ public class RequestDispatcher {
         this.routeMatcher = new RouteMatcher();
     }
 
+    /**
+     * Registers a route after validating and normalizing its path pattern.
+     *
+     * @param path raw path pattern specified by the user
+     * @param method HTTP method accepted by the route
+     * @param handler function that handles requests matching the route
+     * @param requestShape optional type used to deserialize and validate request bodies
+     * @throws DuplicateRouteException if the normalized path and method are already registered
+     */
     public void createRoute(String path, HttpMethod method, Handler handler, Class<? extends RequestShape> requestShape) {
         RoutePattern routePattern = new RoutePattern(path);
-        ParsedRoute parsedRoute = routePattern.serializeRoute();
+        ParsedRoute parsedRoute = routePattern.normalizeRoute();
 
         Route route = new Route(
                 handler,
@@ -43,8 +57,14 @@ public class RequestDispatcher {
             routeMap.get(parsedRoute.path()).put(method, route);
         }
     }
-
-
+    /**
+     * Dispatches a request to a registered route. When no route matches, an
+     * unmatched GET request falls back to static-file serving if configured.
+     * Other unmatched requests retain the original route-not-found behavior.
+     *
+     * @param request parsed incoming HTTP request
+     * @return the response produced by a route handler or static-file handler
+     */
     public HttpResponse handleRequest(HttpRequest request) {
         try {
             return handleRegisteredRoute(request);
@@ -57,6 +77,13 @@ public class RequestDispatcher {
         }
     }
 
+    /**
+     * Matches and maps a request, associates captured path values with their
+     * declared variable names, and invokes the selected route handler.
+     *
+     * @param request parsed incoming HTTP request
+     * @return the response produced by the matched route handler
+     */
     public HttpResponse handleRegisteredRoute(HttpRequest request) {
         RouteMatch routeMatch = routeMatcher.match(
                 routeMap,
@@ -76,6 +103,11 @@ public class RequestDispatcher {
         return route.handler().handle(serverRequest);
     }
 
+    /**
+     * Configures the root directory used to serve unmatched GET requests.
+     *
+     * @param root static-file root directory
+     */
     public void serveStaticFiles(Path root) {
         staticFileHandler = new StaticFileHandler(root);
     }

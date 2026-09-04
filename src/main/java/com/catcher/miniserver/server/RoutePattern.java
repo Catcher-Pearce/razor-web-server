@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Parses registered routes for correctness and normalizes the route
+ * for proper route mapping
+ */
 public class RoutePattern {
     private static final Pattern LITERAL_SEGMENT = Pattern.compile("[A-Za-z0-9._~-]+");
     private static final Pattern VARIABLE_SEGMENT = Pattern.compile("\\{([A-Za-z_][A-Za-z0-9_]*)}");
@@ -19,7 +23,7 @@ public class RoutePattern {
         this.route = route;
     }
 
-    public ParsedRoute serializeRoute() {
+    public ParsedRoute normalizeRoute() {
         validateRoute();
 
         if (route.equals("/")) {

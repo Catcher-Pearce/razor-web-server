@@ -31,7 +31,7 @@ can read named path variables and query parameters from `ServerRequest`:
 ```java
 MiniServer server = new MiniServer(3000);
 
-server.get("/", request -> Response.ok("Hello World"));
+server.get("/", request -> Response.text("Hello World"));
 
 server.get("/users/{userId}", request -> {
     String userId = request.pathVariables().get("userId");
@@ -57,16 +57,19 @@ curl http://localhost:3000/
 curl 'http://localhost:3000/users/42?name=Ada%20Lovelace'
 ```
 
-Response bodies returned by the convenience helpers are serialized as JSON:
+Response bodies returned by the JSON convenience helpers are serialized as JSON:
 
 ```json
 {"userId":"42","name":"Ada Lovelace"}
 ```
 
-`Response` provides helpers such as `ok`, `created`, `noContent`,
-`badRequest`, `unauthorized`, `forbidden`, `notFound`,
-`internalServerError`, and `status`. A handler can also return an
-`HttpResponse` directly when it needs to control the status, headers, and body.
+Use `Response.json(body)` or `Response.text(body)` for a `200` response with an
+explicit representation. Both also accept a status code as their first argument,
+such as `Response.text(201, "Created")`. `Response.ok(body)` remains available as
+a `200` JSON convenience, alongside `created`, `noContent`, `badRequest`,
+`unauthorized`, `forbidden`, `notFound`, `internalServerError`, and `status`. A
+handler can also return an `HttpResponse` directly when it needs to control the
+status, headers, and body.
 
 ## Query parameters
 

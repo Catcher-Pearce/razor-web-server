@@ -12,4 +12,8 @@ public record ServerRequest(
         Map<String, String> queryParams,
         Map<String, String> headers,
         Object body
-) {}
+) {
+    public <T> T bodyAs(Class<T> type) {
+        return type.cast(body);
+    }
+}
