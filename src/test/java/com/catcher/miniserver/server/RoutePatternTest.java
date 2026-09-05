@@ -11,20 +11,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class RoutePatternTest {
 
     @Test
-    public void serializesSinglePathVariable() {
+    public void normalizesSinglePathVariable() {
         RoutePattern pattern = new RoutePattern("/users/{id}");
 
-        ParsedRoute result = pattern.serializeRoute();
+        ParsedRoute result = pattern.normalizeRoute();
 
         assertEquals("/users/{}", result.path());
         assertEquals(List.of("id"), result.pathVariables());
     }
 
     @Test
-    public void serializesDoublePathVariables() {
+    public void normalizesDoublePathVariables() {
         RoutePattern pattern = new RoutePattern("/users/{id}/accounts/{value}");
 
-        ParsedRoute result = pattern.serializeRoute();
+        ParsedRoute result = pattern.normalizeRoute();
 
         assertEquals("/users/{}/accounts/{}", result.path());
         assertEquals(List.of("id", "value"), result.pathVariables());
@@ -34,7 +34,7 @@ public class RoutePatternTest {
     public void rejectsDuplicatePathVariableNames() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/{id}/accounts/{id}").serializeRoute()
+                () -> new RoutePattern("/users/{id}/accounts/{id}").normalizeRoute()
         );
     }
 
@@ -42,7 +42,7 @@ public class RoutePatternTest {
     public void rejectsUnclosedPathVariable() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/{id").serializeRoute()
+                () -> new RoutePattern("/users/{id").normalizeRoute()
         );
     }
 
@@ -50,7 +50,7 @@ public class RoutePatternTest {
     public void rejectsEmptyPathVariableNames() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/{}").serializeRoute()
+                () -> new RoutePattern("/users/{}").normalizeRoute()
         );
     }
 
@@ -58,7 +58,7 @@ public class RoutePatternTest {
     public void rejectsMissingOpeningBracket() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/id}").serializeRoute()
+                () -> new RoutePattern("/users/id}").normalizeRoute()
         );
     }
 
@@ -66,7 +66,7 @@ public class RoutePatternTest {
     public void rejectsEmptyRoute() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("").serializeRoute()
+                () -> new RoutePattern("").normalizeRoute()
         );
     }
 
@@ -74,7 +74,7 @@ public class RoutePatternTest {
     public void rejectsNestedRoute() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/{{id}}").serializeRoute()
+                () -> new RoutePattern("/users/{{id}}").normalizeRoute()
         );
     }
 
@@ -82,7 +82,7 @@ public class RoutePatternTest {
     public void rejectsPathVariableMixedWithLiteralText() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/id{id}").serializeRoute()
+                () -> new RoutePattern("/users/id{id}").normalizeRoute()
         );
     }
 
@@ -90,7 +90,7 @@ public class RoutePatternTest {
     public void rejectsRouteStartingWithPathVariables() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("{id}/users").serializeRoute()
+                () -> new RoutePattern("{id}/users").normalizeRoute()
         );
     }
 
@@ -98,7 +98,7 @@ public class RoutePatternTest {
     public void rejectsSlashInsidePathVariable() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/{user/id}").serializeRoute()
+                () -> new RoutePattern("/users/{user/id}").normalizeRoute()
         );
     }
 
@@ -106,7 +106,7 @@ public class RoutePatternTest {
     public void rejectsRouteWithoutLeadingSlash() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("users/{id}").serializeRoute()
+                () -> new RoutePattern("users/{id}").normalizeRoute()
         );
     }
 
@@ -114,7 +114,7 @@ public class RoutePatternTest {
     public void rejectsEmptyPathSegment() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users//accounts").serializeRoute()
+                () -> new RoutePattern("/users//accounts").normalizeRoute()
         );
     }
 
@@ -122,13 +122,13 @@ public class RoutePatternTest {
     public void rejectsTrailingSlash() {
         assertThrows(
                 InvalidRoutePatternException.class,
-                () -> new RoutePattern("/users/").serializeRoute()
+                () -> new RoutePattern("/users/").normalizeRoute()
         );
     }
 
     @Test
-    public void serializesRootRoute() {
-        ParsedRoute result = new RoutePattern("/").serializeRoute();
+    public void normalizesRootRoute() {
+        ParsedRoute result = new RoutePattern("/").normalizeRoute();
 
         assertEquals("/", result.path());
         assertEquals(List.of(), result.pathVariables());

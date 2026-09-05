@@ -48,7 +48,7 @@ final class ServerEngine {
 
             while (running) {
                 Socket clientSocket = serverSocket.accept();
-                executor.execute(() -> handleClient(clientSocket));
+                dispatchClient(clientSocket);
             }
 
         } catch (IOException e) {
@@ -56,6 +56,15 @@ final class ServerEngine {
         } finally {
             running = false;
             serverSocket = null;
+        }
+    }
+
+    void dispatchClient(Socket clientSocket) throws IOException {
+        try {
+            executor.execute(() -> handleClient(clientSocket));
+        } catch (RejectedExecutionException exception) {
+            // No worker owns this connection when submission is rejected.
+            clientSocket.close();
         }
     }
 
@@ -143,7 +152,13 @@ final class ServerEngine {
         int queueCapacity = 100;
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(queueCapacity);
 
-        RejectedExecutionHandler rejectionHandler = new ThreadPoolExecutor.CallerRunsPolicy();
+        RejectedExecutionHandler rejectionHandler = (task, pool) -> {
+            if (pool.isShutdown()) {
+                throw new RejectedExecutionException("Server is shutting down");
+            }
+            // Preserve caller-runs backpressure when the pool is full.
+            task.run();
+        };
 
         return new ThreadPoolExecutor(
                 corePoolSize,

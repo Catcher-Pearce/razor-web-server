@@ -10,8 +10,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parses registered routes for correctness and normalizes the route
- * for proper route mapping
+ * Validates registered route patterns and normalizes named path variables
+ * to {@code {}} placeholders for route mapping.
+ * Literal segments are preserved, and variable names are collected in path order.
  */
 public class RoutePattern {
     private static final Pattern LITERAL_SEGMENT = Pattern.compile("[A-Za-z0-9._~-]+");
@@ -19,10 +20,32 @@ public class RoutePattern {
 
     private final String route;
 
+    /**
+     * Stores a route pattern for later validation and normalization.
+     *
+     * @param route the route pattern, such as {@code /users/{id}};
+     *              validated when {@link #normalizeRoute()} is called
+     */
     public RoutePattern(String route) {
         this.route = route;
     }
 
+    /**
+     * Validates the route and replaces each named variable segment with {@code {}}.
+     * For example, {@code /users/{id}} produces the path {@code /users/{}}
+     * and the variable list {@code [id]}. The root route {@code /} produces
+     * an empty variable list.
+     *
+     * <p>Routes must start with {@code /} and must not contain empty segments or
+     * a trailing slash, except for the root route. Literal segments may contain
+     * ASCII letters, digits, dots, underscores, tildes, and hyphens. Variables
+     * must occupy an entire segment and have unique, case-sensitive names
+     * matching {@code [A-Za-z_][A-Za-z0-9_]*} enclosed in braces.
+     *
+     * @return the normalized path and an immutable list of variable names in path order
+     * @throws InvalidRoutePatternException if the route is null, empty, malformed,
+     *         or contains duplicate variable names
+     */
     public ParsedRoute normalizeRoute() {
         validateRoute();
 
@@ -58,6 +81,13 @@ public class RoutePattern {
         );
     }
 
+    /**
+     * Checks that the route is nonempty, starts with a slash, and contains
+     * neither empty segments nor a trailing slash other than the root slash.
+     * Segment contents are checked separately during normalization.
+     *
+     * @throws InvalidRoutePatternException if the route fails these structural checks
+     */
     private void validateRoute() {
         if (route == null || route.isEmpty()) {
             throw invalid("route cannot be empty");
@@ -73,6 +103,12 @@ public class RoutePattern {
         }
     }
 
+    /**
+     * Creates an exception describing a validation failure for this route.
+     *
+     * @param reason the reason the route is invalid
+     * @return an exception containing the route and failure reason
+     */
     private InvalidRoutePatternException invalid(String reason) {
         return new InvalidRoutePatternException(route, reason);
     }

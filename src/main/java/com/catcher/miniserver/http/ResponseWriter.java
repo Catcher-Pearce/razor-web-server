@@ -5,13 +5,32 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Encodes HTTP responses as HTTP/1.1 messages containing a status line,
+ * headers, and a serialized body.
+ */
 public class ResponseWriter {
     private final ResponseSerializer responseSerializer;
 
+    /**
+     * Creates a writer that uses {@link ResponseSerializer} to encode response bodies.
+     */
     public ResponseWriter() {
         this.responseSerializer = new ResponseSerializer();
     }
 
+    /**
+     * Encodes the given response into bytes, using UTF-8 for the status line and headers.
+     * Any supplied {@code Content-Length} header is replaced with the actual body
+     * length in bytes. Responses with status {@code 204} have an empty body and
+     * bypass body serialization.
+     *
+     * @param response the response to encode
+     * @return the complete HTTP/1.1 message as a byte array
+     * @throws JsonProcessingException if JSON serialization of the body fails
+     * @throws UnsupportedOperationException if the body is not a byte array and
+     *         its content type is unsupported by the serializer
+     */
     public byte[] write(HttpResponse response) throws JsonProcessingException {
         byte[] bodyBytes = response.status() == 204
                 ? new byte[0]
@@ -55,6 +74,12 @@ public class ResponseWriter {
 
     }
 
+    /**
+     * Returns the reason phrase for a supported HTTP status code.
+     *
+     * @param statusCode the HTTP status code
+     * @return the corresponding reason phrase, or {@code "Unknown"} if unsupported
+     */
     private String getReasonPhrase(int statusCode) {
         return switch (statusCode) {
             case 200 -> "OK";
