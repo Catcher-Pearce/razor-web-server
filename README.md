@@ -74,10 +74,24 @@ status, headers, and body.
 
 ## Request flow
 
-```text
-Client socket → HttpParser → RequestDispatcher → RouteMatcher
-                                              → RequestMapper → Handler
-Client socket ← ResponseWriter ← HttpResponse ←───────────────┘
+```mermaid
+flowchart TD
+    client[Client socket] -->|Input stream| parser[HttpParser]
+    parser -->|HttpRequest| dispatcher[RequestDispatcher]
+    dispatcher --> matcher[RouteMatcher]
+    matcher -->|RouteMatch| mapper[RequestMapper]
+    mapper -->|ServerRequest| handler[Route handler]
+    handler --> response[HttpResponse]
+    matcher -->|No matching route| fallback{Static serving configured<br/>and GET request?}
+    fallback -->|Yes| static[StaticFileHandler]
+    fallback -->|No| missing[404 response]
+    static --> response
+    missing --> response
+    response --> writer[ResponseWriter]
+    writer -->|Serialize body| serializer[ResponseSerializer]
+    serializer -->|Body bytes| writer
+    writer -->|Complete HTTP response bytes| engine[ServerEngine]
+    engine -->|Write, flush, and close| client
 ```
 
 ## Socket reading
