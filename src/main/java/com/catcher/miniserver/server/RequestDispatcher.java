@@ -18,15 +18,13 @@ import java.util.Map;
  * handlers, with optional static-file fallback for unmatched GET requests.
  */
 public class RequestDispatcher {
-    private Map<String, Map<HttpMethod, Route>> routeMap;
+    private final RouteNode root;
     private RequestMapper requestMapper;
-    private RouteMatcher routeMatcher;
     private StaticFileHandler staticFileHandler;
 
     public RequestDispatcher() {
-        this.routeMap = new HashMap<>();
+        this.root = new RouteNode();
         this.requestMapper = new RequestMapper();
-        this.routeMatcher = new RouteMatcher();
     }
 
     /**
@@ -48,15 +46,19 @@ public class RequestDispatcher {
                 parsedRoute.pathVariables()
         );
 
-        if (!routeMap.containsKey(parsedRoute.path())) {
-            routeMap.put(parsedRoute.path(), new HashMap<>(Map.of(method, route)));
-        } else {
-            if (routeMap.get(parsedRoute.path()).containsKey(method)) {
-                throw new DuplicateRouteException(method, path);
+        RouteNode currNode = root;
+
+        for (String segment : parsedRoute.path()) {
+            if (segment.equals("{}")) {
+                currNode = currNode.getOrCreateVariableChild();
+            } else {
+                currNode = currNode.getOrCreateLiteralChild(segment);
             }
-            routeMap.get(parsedRoute.path()).put(method, route);
+            }
+
+        currNode.addRoute(method, route, String.join("/", parsedRoute.path()));
         }
-    }
+
     /**
      * Dispatches a request to a registered route. When no route matches, an
      * unmatched GET request falls back to static-file serving if configured.
@@ -85,11 +87,12 @@ public class RequestDispatcher {
      * @return the response produced by the matched route handler
      */
     public HttpResponse handleRegisteredRoute(HttpRequest request) {
-        RouteMatch routeMatch = routeMatcher.match(
-                routeMap,
+        RouteMatcher routeMatcher = new RouteMatcher(
+                root,
                 request.path(),
                 request.method()
         );
+        RouteMatch routeMatch = routeMatcher.match();
 
         Route route = routeMatch.matchedRoute();
         Map<String, String> pathVariablesMap = new HashMap<>();

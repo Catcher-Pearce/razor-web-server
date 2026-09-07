@@ -9,113 +9,133 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * Matches one request against a shared route tree and collects its path variables
+ * and decoded query parameters.
+ *
+ * <p>Create a new instance for each request and call {@link #match()} once.
+ * Captured path variables are mutable state retained by this instance.</p>
+ */
 class RouteMatcher {
     private static final int MAX_QUERY_LENGTH = 8_192;
     private static final int MAX_QUERY_PARAMETERS = 100;
 
+    private final RouteNode root;
+    private final HttpMethod requestMethod;
+    private final String path;
+    private final Map<String, String> queryParams;
+    private final String[] requestRoute;
+    private final List<String> pathVariables = new ArrayList<>();
+
     /**
-     * Matches a request target and HTTP method against the registered routes.
-     * The first literal {@code ?} separates the path from the raw query. Query
-     * parameters are parsed according to the rules documented by
-     * {@link #extractQueryParameters(String)} and do not participate in route
-     * matching.
+     * Prepares the path segments and query parameters for one request.
+     * The first literal {@code ?} separates the path from the query, which is
+     * parsed by {@link #extractQueryParameters(String)}. Query parameters do not
+     * participate in route selection.
      *
-     * <p>A route segment equal to {@code {}} matches any request-path segment
-     * and captures its value. When multiple routes match, literal segments take
-     * precedence over variable segments, compared from left to right. Only
-     * routes registered for {@code requestMethod} are eligible for selection.</p>
+     * <p>The leading slash is removed before splitting the path. The root path
+     * {@code /} has no segments and matches directly against the root node.
+     * Other paths retain empty segments, including those after a trailing slash.
+     * Path segments are not URL-decoded.</p>
      *
-     * @param routes registered route patterns grouped by supported HTTP method
-     * @param requestPath request target containing a path and an optional query
-     *                    string
-     * @param requestMethod HTTP method used for the request
-     * @return the selected route together with its captured path variables and
-     *         decoded query parameters
-     * @throws MalformedHttpRequestException if the query string is malformed
-     * @throws RouteNotFoundException if no registered route pattern matches the
-     *                                request path
-     * @throws MethodNotAllowedException if the path matches at least one route,
-     *                                   but none supports {@code requestMethod}
+     * @param root          shared tree of registered routes
+     * @param requestPath   request target beginning with {@code /}, optionally
+     *                      followed by a query string
+     * @param requestMethod HTTP method required on the matched node
+     * @throws MalformedHttpRequestException if the query violates the query
+     *                                       parsing rules
      */
-    RouteMatch match(
-            Map<String, Map<HttpMethod, Route>> routes,
+    RouteMatcher(
+            RouteNode root,
             String requestPath,
             HttpMethod requestMethod
     ) {
         int questionMark = requestPath.indexOf('?');
 
-        String path = questionMark == -1
+        this.root = root;
+        this.requestMethod = requestMethod;
+
+        this.path = questionMark == -1
                 ? requestPath
                 : requestPath.substring(0, questionMark);
 
-        Map<String, String> queryParams = questionMark == -1
+        this.queryParams = questionMark == -1
                 ? Map.of()
                 : extractQueryParameters(requestPath.substring(questionMark + 1));
 
-        String[] requestRoute = path.split("/");
-        String parsedRequestRoute = "";
-        ArrayList<String> parsedPathVariables = new ArrayList<>();
-        List<Integer> bestScore = new ArrayList<>();
-        Route bestRoute = null;
-        Set<HttpMethod> allowedMethods = new HashSet<>();
+        this.requestRoute = path.equals("/")
+                ? new String[0]
+                : path.substring(1).split("/", -1);
+    }
 
-        for (String route : routes.keySet()) {
-            ArrayList<String> pathVariables = new ArrayList<>();
-            boolean matched = true;
-            String[] mappedRoute = route.split("/");
-            List<Integer> currScore = new ArrayList<>();
+    /**
+     * Finds a complete path match supporting this request's HTTP method.
+     * Literal branches are searched before variable branches at each segment.
+     * A variable branch is tried when the literal branch has no complete match
+     * for the requested method.
+     *
+     * @return the path without its query string, captured variable values in
+     * path order, decoded query parameters, and selected route
+     * @throws RouteNotFoundException if no complete match supports the requested
+     *                                method, including when the path exists only
+     *                                for other methods
+     */
+    RouteMatch match() {
+        RouteNode matchedRoute = backtrack(root, 0);
 
+        if (matchedRoute == null) {
+            throw new RouteNotFoundException(path);
+        }
 
-            if (mappedRoute.length != requestRoute.length) {
-                continue;
-            }
+        return new RouteMatch(
+                path,
+                pathVariables,
+                queryParams,
+                matchedRoute.getRoute(requestMethod)
+        );
+    }
 
-            for (int i = 0; i < mappedRoute.length; i++) {
-                if (!requestRoute[i].equals(mappedRoute[i]) && !mappedRoute[i].equals("{}")) {
-                    matched = false;
-                    break;
-                } else if (mappedRoute[i].equals("{}")) {
-                    pathVariables.add(requestRoute[i]);
-                    currScore.add(0);
-                } else {
-                    currScore.add(1);
-                }
-            }
-            if (!matched) {
-                continue;
-            }
+    /**
+     * Searches from a node using the next unconsumed request segment.
+     * A node is accepted only after all segments have been consumed and it has
+     * a route for the requested method.
+     *
+     * <p>Variable values are appended before exploring a variable branch and
+     * removed if that branch fails. A successful search retains its captured
+     * values; a failed search restores the list to its state on entry.</p>
+     *
+     * @param currNode node to search, or {@code null} for a missing branch
+     * @param i        index of the next segment, from zero through the segment count
+     * @return the first matching node in literal-first order, or {@code null}
+     */
+    private RouteNode backtrack(RouteNode currNode, int i) {
+        if (currNode == null) {
+            return null;
+        }
 
-            Map<HttpMethod, Route> routesByMethod = routes.get(route);
-            allowedMethods.addAll(routesByMethod.keySet());
-            Route candidateRoute = routesByMethod.get(requestMethod);
+        RouteNode bestPath = null;
 
-            // A matching path with the wrong method must not hide another matching
-            // path that can handle the requested method.
-            if (candidateRoute == null) {
-                continue;
-            }
+        if (i == requestRoute.length) {
+            return currNode.getRoute(requestMethod) != null ? currNode : null;
+        }
 
-            if (bestRoute == null || isMoreSpecific(currScore, bestScore)) {
-                parsedRequestRoute = route;
-                parsedPathVariables = pathVariables;
-                bestScore = List.copyOf(currScore);
-                bestRoute = candidateRoute;
+        RouteNode literalChild = currNode.getLiteralChild(requestRoute[i]);
+        RouteNode variableChild = currNode.getVariableChild();
+
+        if (literalChild != null) {
+            bestPath = backtrack(literalChild, i + 1);
+        }
+
+        if (bestPath == null && variableChild != null) {
+            pathVariables.add(requestRoute[i]);
+            bestPath = backtrack(variableChild, i + 1);
+
+            if (bestPath == null) {
+                pathVariables.removeLast();
             }
         }
 
-        if (allowedMethods.isEmpty()) {
-            throw new RouteNotFoundException(requestPath);
-        }
-
-        if (bestRoute == null) {
-            throw new MethodNotAllowedException(
-                    requestMethod,
-                    requestPath,
-                    allowedMethods
-            );
-        }
-
-        return new RouteMatch(parsedRequestRoute, parsedPathVariables, queryParams, bestRoute);
+        return bestPath;
     }
 
     /**
@@ -138,7 +158,7 @@ class RouteMatcher {
      * @param rawQuery raw query text following the first {@code ?}
      * @return decoded parameters, with at most one value per key
      * @throws MalformedHttpRequestException if the query violates the parsing
-     *                                      rules described above
+     *                                       rules described above
      */
     private Map<String, String> extractQueryParameters(String rawQuery) {
         Map<String, String> queryParams = new HashMap<>();
@@ -190,6 +210,14 @@ class RouteMatcher {
         return queryParams;
     }
 
+    /**
+     * Decodes one query key or value using UTF-8 form decoding, including
+     * converting {@code +} to a space.
+     *
+     * @param component encoded query key or value
+     * @return decoded component
+     * @throws MalformedHttpRequestException if a percent escape is invalid
+     */
     private String decodeQueryComponent(String component) {
         try {
             return URLDecoder.decode(component, StandardCharsets.UTF_8);
@@ -198,16 +226,5 @@ class RouteMatcher {
                     "Query parameter contains invalid percent encoding"
             );
         }
-    }
-
-    private boolean isMoreSpecific(List<Integer> candidate, List<Integer> currentBest) {
-        for (int i = 0; i < candidate.size(); i++) {
-            int comparison = Integer.compare(candidate.get(i), currentBest.get(i));
-            if (comparison != 0) {
-                return comparison > 0;
-            }
-        }
-
-        return false;
     }
 }

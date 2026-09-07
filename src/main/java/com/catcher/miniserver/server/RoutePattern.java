@@ -50,7 +50,7 @@ public class RoutePattern {
         validateRoute();
 
         if (route.equals("/")) {
-            return new ParsedRoute("/", List.of());
+            return new ParsedRoute(List.of(), List.of());
         }
 
         String[] segments = route.substring(1).split("/", -1);
@@ -76,7 +76,7 @@ public class RoutePattern {
         }
 
         return new ParsedRoute(
-                "/" + String.join("/", serializedSegments),
+                serializedSegments,
                 List.copyOf(pathVariables)
         );
     }

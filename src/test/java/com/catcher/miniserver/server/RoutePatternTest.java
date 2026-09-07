@@ -16,7 +16,7 @@ public class RoutePatternTest {
 
         ParsedRoute result = pattern.normalizeRoute();
 
-        assertEquals("/users/{}", result.path());
+        assertEquals(List.of("users", "{}"), result.path());
         assertEquals(List.of("id"), result.pathVariables());
     }
 
@@ -26,7 +26,7 @@ public class RoutePatternTest {
 
         ParsedRoute result = pattern.normalizeRoute();
 
-        assertEquals("/users/{}/accounts/{}", result.path());
+        assertEquals(List.of("users", "{}", "accounts", "{}"), result.path());
         assertEquals(List.of("id", "value"), result.pathVariables());
     }
 
@@ -130,7 +130,7 @@ public class RoutePatternTest {
     public void normalizesRootRoute() {
         ParsedRoute result = new RoutePattern("/").normalizeRoute();
 
-        assertEquals("/", result.path());
+        assertEquals(List.of(), result.path());
         assertEquals(List.of(), result.pathVariables());
     }
 }
