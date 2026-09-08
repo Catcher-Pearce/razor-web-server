@@ -6,6 +6,13 @@ import com.catcher.miniserver.validation.annotations.Min;
 import com.catcher.miniserver.validation.annotations.NotNull;
 import com.catcher.miniserver.validation.annotations.Size;
 
+/**
+ * JSON request body used by the example user-creation route.
+ * Constraints are checked during request mapping before the handler runs.
+ *
+ * @param name required user name containing between 2 and 50 characters
+ * @param age required age between 18 and 120, inclusive
+ */
 public record CreateUserRequest(
         @NotNull
         @Size(min = 2, max = 50)

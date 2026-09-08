@@ -12,6 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class RequestDeserializerTest {
     private final RequestDeserializer deserializer = new RequestDeserializer();
 
+    /**
+     * Request shape used to test JSON deserialization independently of examples.
+     *
+     * @param name user name read from JSON
+     * @param age integer age read from JSON
+     */
     public record CreateUserRequest(String name, Integer age) implements RequestShape {}
 
     @Test

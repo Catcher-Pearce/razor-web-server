@@ -12,7 +12,7 @@ import java.util.Map;
  * shape, it contains the raw request body as a {@link String}.</p>
  *
  * @param method HTTP method used for the request
- * @param path request path, excluding query parameters
+ * @param path raw request path including any query string
  * @param pathVariables values captured from variables in the route pattern
  * @param queryParams decoded query parameters from the request target
  * @param headers request headers, keyed by normalized header name
