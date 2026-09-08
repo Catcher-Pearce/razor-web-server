@@ -2,7 +2,6 @@ package com.catcher.miniserver.http;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**

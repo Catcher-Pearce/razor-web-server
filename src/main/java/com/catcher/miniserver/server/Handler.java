@@ -4,5 +4,5 @@ import com.catcher.miniserver.http.HttpResponse;
 
 @FunctionalInterface
 public interface Handler {
-    public HttpResponse handle(ServerRequest serverRequest);
+    HttpResponse handle(ServerRequest serverRequest);
 }

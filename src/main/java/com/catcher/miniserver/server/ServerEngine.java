@@ -10,6 +10,7 @@ import com.catcher.miniserver.http.ResponseWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PushbackInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.*;
@@ -120,8 +121,16 @@ final class ServerEngine {
             HttpResponse response;
 
             try {
+                PushbackInputStream input =
+                        new PushbackInputStream(clientSocket.getInputStream());
+                int firstByte = input.read();
+                if (firstByte == -1) {
+                    // The client closed without starting an HTTP request.
+                    return;
+                }
+                input.unread(firstByte);
                 HttpParser parser =
-                        new HttpParser(clientSocket.getInputStream());
+                        new HttpParser(input);
 
                 HttpRequest parsedRequest = parser.parse();
                 response = requestDispatcher.handleRequest(parsedRequest);

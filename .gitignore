@@ -4,6 +4,8 @@ out/
 !**/src/test/**/out/
 .kotlin
 .iml
+.idea/
+*.iml
 
 ### Eclipse ###
 .apt_generated
@@ -30,5 +32,3 @@ bin/
 ### Mac OS ###
 .DS_Store
 target/
-.idea/
-*.iml

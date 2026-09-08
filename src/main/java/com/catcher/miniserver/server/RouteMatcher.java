@@ -1,7 +1,6 @@
 package com.catcher.miniserver.server;
 
 import com.catcher.miniserver.exception.MalformedHttpRequestException;
-import com.catcher.miniserver.exception.MethodNotAllowedException;
 import com.catcher.miniserver.exception.RouteNotFoundException;
 import com.catcher.miniserver.http.HttpMethod;
 
@@ -97,7 +96,7 @@ class RouteMatcher {
 
     /**
      * Searches from a node using the next unconsumed request segment.
-     * A node is accepted only after all segments have been consumed and it has
+     * A node is accepted only after all segments have been consumed, and it has
      * a route for the requested method.
      *
      * <p>Variable values are appended before exploring a variable branch and

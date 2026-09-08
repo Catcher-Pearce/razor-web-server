@@ -19,7 +19,7 @@ import java.util.Map;
  */
 public class RequestDispatcher {
     private final RouteNode root;
-    private RequestMapper requestMapper;
+    private final RequestMapper requestMapper;
     private StaticFileHandler staticFileHandler;
 
     public RequestDispatcher() {
