@@ -1,6 +1,6 @@
 # Razor: Full-Stack Web Framework
 
-Razor is my small, from-scratch HTTP server written in Java. I started it to better understand what frameworks abstract from the user. Things like accepting socket connections, parsing raw HTTP, matching routes, and turning Java values into HTTP responses.
+Razor is my small, from-scratch web server and framework written in Java. I started it to better understand what frameworks abstract from the user. Things like accepting socket connections, parsing raw HTTP, matching routes, and turning Java values into HTTP responses.
 
 It is still a work in progress, but the basic request-to-response path is up and running.
 
@@ -25,8 +25,7 @@ It is still a work in progress, but the basic request-to-response path is up and
 
 ## Example usage
 
-Replace the contents of `src/main/java/io/github/catcherpearce/razorserver/example/Main.java`
-with this example. It demonstrates all five supported HTTP methods, named path
+This example demonstrates all five supported HTTP methods, named path
 variables, decoded query parameters, JSON request shapes, all four validation
 annotations, raw request bodies, and static-file serving. The handlers echo
 request data; they do not persist users.
