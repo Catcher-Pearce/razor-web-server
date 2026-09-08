@@ -1,6 +1,6 @@
 # Razor: Full-Stack Web Framework
 
-Razor is my small, from-scratch HTTP server written in Java. I started it to better understand what frameworks usually hide: accepting socket connections, parsing raw HTTP, matching routes, and turning Java values into HTTP responses.
+Razor is my small, from-scratch HTTP server written in Java. I started it to better understand what frameworks abstract from the user. Things like accepting socket connections, parsing raw HTTP, matching routes, and turning Java values into HTTP responses.
 
 It is still a work in progress, but the basic request-to-response path is up and running.
 
