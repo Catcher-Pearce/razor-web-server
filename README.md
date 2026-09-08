@@ -25,22 +25,22 @@ It is still a work in progress, but the basic request-to-response path is up and
 
 ## Example usage
 
-Replace the contents of `src/main/java/com/catcher/miniserver/example/Main.java`
+Replace the contents of `src/main/java/io/github/catcherpearce/razorserver/example/Main.java`
 with this example. It demonstrates all five supported HTTP methods, named path
 variables, decoded query parameters, JSON request shapes, all four validation
 annotations, raw request bodies, and static-file serving. The handlers echo
 request data; they do not persist users.
 
 ```java
-package com.catcher.miniserver.example;
+package io.github.catcherpearce.razorserver.example;
 
-import com.catcher.miniserver.http.Response;
-import com.catcher.miniserver.server.MiniServer;
-import com.catcher.miniserver.validation.RequestShape;
-import com.catcher.miniserver.validation.annotations.Max;
-import com.catcher.miniserver.validation.annotations.Min;
-import com.catcher.miniserver.validation.annotations.NotNull;
-import com.catcher.miniserver.validation.annotations.Size;
+import io.github.catcherpearce.razorserver.http.Response;
+import io.github.catcherpearce.razorserver.server.RazorServer;
+import io.github.catcherpearce.razorserver.validation.RequestShape;
+import io.github.catcherpearce.razorserver.validation.annotations.Max;
+import io.github.catcherpearce.razorserver.validation.annotations.Min;
+import io.github.catcherpearce.razorserver.validation.annotations.NotNull;
+import io.github.catcherpearce.razorserver.validation.annotations.Size;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -57,7 +57,7 @@ public class Main {
 
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "3000"));
-        MiniServer server = new MiniServer(port);
+        RazorServer server = new RazorServer(port);
         server.staticFiles(Path.of("public"));
 
         // Literal routes take precedence over variable routes.
@@ -109,7 +109,7 @@ printf '%s\n' '<!doctype html><html><body><h1>Hello from Razor</h1></body></html
 printf '%s\n' 'Hello from a static file' > public/hello.txt
 ```
 
-Run `com.catcher.miniserver.example.Main` from your IDE with the project root as
+Run `io.github.catcherpearce.razorserver.example.Main` from your IDE with the project root as
 its working directory. In another terminal, try each method (adjust the port if
 you set `PORT`):
 
@@ -193,7 +193,7 @@ flowchart TD
 
 ## Socket reading
 
-[ServerEngine](src/main/java/com/catcher/miniserver/server/ServerEngine.java)
+[ServerEngine](src/main/java/io/github/catcherpearce/razorserver/server/ServerEngine.java)
 opens a `ServerSocket` and blocks in `accept()` until a client connects. Each
 accepted socket is submitted to a thread pool with 5 core workers, a maximum of
 10 workers, and a queue of 100 tasks. When the pool and queue are full, the
@@ -207,7 +207,7 @@ implemented.
 
 ## HTTP parsing
 
-[HttpParser](src/main/java/com/catcher/miniserver/http/HttpParser.java) reads
+[HttpParser](src/main/java/io/github/catcherpearce/razorserver/http/HttpParser.java) reads
 bytes until `\r\n\r\n` marks the end of the headers. It splits the request line
 into a method, request target, and HTTP version, requiring `HTTP/1.1`. The request
 target still includes its query string at this stage.
@@ -225,8 +225,8 @@ contains the method, target, version, headers, and raw string body.
 ## Route creation
 
 Calls such as `server.get("/users/{id}", handler)` register routes through
-[RequestDispatcher](src/main/java/com/catcher/miniserver/server/RequestDispatcher.java).
-[RoutePattern](src/main/java/com/catcher/miniserver/server/RoutePattern.java)
+[RequestDispatcher](src/main/java/io/github/catcherpearce/razorserver/server/RequestDispatcher.java).
+[RoutePattern](src/main/java/io/github/catcherpearce/razorserver/server/RoutePattern.java)
 validates the pattern, separates its segments, and replaces named variables
 with `{}` while retaining their names in order:
 
@@ -249,7 +249,7 @@ raises a duplicate-route exception; different methods can share an endpoint.
 
 ## Route matching
 
-A new [RouteMatcher](src/main/java/com/catcher/miniserver/server/RouteMatcher.java)
+A new [RouteMatcher](src/main/java/io/github/catcherpearce/razorserver/server/RouteMatcher.java)
 is created for each request. It holds the request's path segments, method,
 query parameters, and captured variables while searching the shared route tree.
 
@@ -309,7 +309,7 @@ queries with more than 100 parameters are rejected with `400 Bad Request`.
 
 ## Request mapping and handlers
 
-[RequestMapper](src/main/java/com/catcher/miniserver/server/RequestMapper.java)
+[RequestMapper](src/main/java/io/github/catcherpearce/razorserver/server/RequestMapper.java)
 combines the parsed request with named path variables and query parameters into
 `ServerRequest`. If a route declares a `RequestShape`, its JSON body is
 deserialized and validated before the handler runs. Otherwise the body remains
@@ -318,7 +318,7 @@ convenience methods shown above.
 
 ## Writing back to the socket
 
-[ResponseWriter](src/main/java/com/catcher/miniserver/http/ResponseWriter.java)
+[ResponseWriter](src/main/java/io/github/catcherpearce/razorserver/http/ResponseWriter.java)
 turns an `HttpResponse` into a complete HTTP/1.1 byte array. First,
 `ResponseSerializer` encodes JSON bodies with Jackson, text bodies as UTF-8, and
 passes raw byte arrays through directly. A `204` response always has an empty
@@ -350,12 +350,12 @@ Run the automated tests with:
 mvn test
 ```
 
-Then run `com.catcher.miniserver.example.Main` from your IDE. The server will keep listening on the configured port until the process is stopped.
+Then run `io.github.catcherpearce.razorserver.example.Main` from your IDE. The server will keep listening on the configured port until the process is stopped.
 
 ## Project layout
 
 ```text
-src/main/java/com/catcher/miniserver/
+src/main/java/io/github/catcherpearce/razorserver/
 ├── example/      # Example application
 ├── exception/    # HTTP and route-registration exceptions
 ├── file_serving/ # Static-file responses
