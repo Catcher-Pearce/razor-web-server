@@ -25,44 +25,141 @@ It is still a work in progress, but the basic request-to-response path is up and
 
 ## Example usage
 
-The example application in `Main.java` defaults to port `3000`, with a `PORT`
-environment variable override. The following example shows how routes can read
-named path variables and query parameters from `ServerRequest`:
+Replace the contents of `src/main/java/com/catcher/miniserver/example/Main.java`
+with this example. It demonstrates all five supported HTTP methods, named path
+variables, decoded query parameters, JSON request shapes, all four validation
+annotations, raw request bodies, and static-file serving. The handlers echo
+request data; they do not persist users.
 
 ```java
-MiniServer server = new MiniServer(3000);
+package com.catcher.miniserver.example;
 
-server.get("/", request -> Response.text("Hello World"));
+import com.catcher.miniserver.http.Response;
+import com.catcher.miniserver.server.MiniServer;
+import com.catcher.miniserver.validation.RequestShape;
+import com.catcher.miniserver.validation.annotations.Max;
+import com.catcher.miniserver.validation.annotations.Min;
+import com.catcher.miniserver.validation.annotations.NotNull;
+import com.catcher.miniserver.validation.annotations.Size;
 
-server.get("/users/{userId}", request -> {
-    String userId = request.pathVariables().get("userId");
-    String name = request.queryParams().get("name");
+import java.nio.file.Path;
+import java.util.Map;
 
-    if (name == null) {
-        return Response.badRequest("name query parameter required");
+public class Main {
+    public record UserBody(
+            @NotNull @Size(min = 2, max = 50) String name,
+            @NotNull @Min(18) @Max(120) Integer age
+    ) implements RequestShape {}
+
+    public record RenameBody(
+            @NotNull @Size(min = 2, max = 50) String name
+    ) implements RequestShape {}
+
+    public static void main(String[] args) {
+        int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "3000"));
+        MiniServer server = new MiniServer(port);
+        server.staticFiles(Path.of("public"));
+
+        // Literal routes take precedence over variable routes.
+        server.get("/users/me", request -> Response.text("Current user"));
+
+        server.get("/users/{userId}", request -> Response.ok(Map.of(
+                "userId", request.pathVariables().get("userId"),
+                "greeting", request.queryParams().getOrDefault("greeting", "Hello")
+        )));
+
+        // The mapper deserializes and validates JSON before invoking the handler.
+        server.post("/users", request -> {
+            UserBody body = request.bodyAs(UserBody.class);
+            return Response.created(body);
+        }, UserBody.class);
+
+        server.put("/users/{userId}", request -> {
+            UserBody body = request.bodyAs(UserBody.class);
+            return Response.ok(Map.of(
+                    "userId", request.pathVariables().get("userId"),
+                    "replacement", body
+            ));
+        }, UserBody.class);
+
+        server.patch("/users/{userId}", request -> {
+            RenameBody body = request.bodyAs(RenameBody.class);
+            return Response.ok(Map.of(
+                    "userId", request.pathVariables().get("userId"),
+                    "name", body.name()
+            ));
+        }, RenameBody.class);
+
+        server.delete("/users/{userId}", request -> Response.noContent());
+
+        // Without a request shape, the body remains a raw string.
+        server.post("/echo", request -> Response.text((String) request.body()));
+
+        // GET / falls back to public/index.html because no route matches it.
+        server.start();
     }
-
-    return Response.ok(Map.of(
-            "userId", userId,
-            "name", name
-    ));
-});
-
-server.start();
+}
 ```
 
-After starting the application, try it with:
+Create static files from the project root before starting the application:
 
 ```bash
-curl http://localhost:3000/
-curl 'http://localhost:3000/users/42?name=Ada%20Lovelace'
+mkdir -p public
+printf '%s\n' '<!doctype html><html><body><h1>Hello from Razor</h1></body></html>' > public/index.html
+printf '%s\n' 'Hello from a static file' > public/hello.txt
 ```
 
-Response bodies returned by the JSON convenience helpers are serialized as JSON:
+Run `com.catcher.miniserver.example.Main` from your IDE with the project root as
+its working directory. In another terminal, try each method (adjust the port if
+you set `PORT`):
+
+```bash
+# GET: named path variable and a percent-decoded query parameter
+curl -i 'http://localhost:3000/users/42?greeting=Hello%20Ada'
+
+# GET: literal route takes precedence over /users/{userId}
+curl -i http://localhost:3000/users/me
+
+# POST: deserialize and validate a JSON body; returns 201
+curl -i -X POST http://localhost:3000/users \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Ada Lovelace","age":36}'
+
+# PUT: replacement body and path variable
+curl -i -X PUT http://localhost:3000/users/42 \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Grace Hopper","age":85}'
+
+# PATCH: update just the name
+curl -i -X PATCH http://localhost:3000/users/42 \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Ada Byron"}'
+
+# DELETE: returns 204 with no response body
+curl -i -X DELETE http://localhost:3000/users/42
+
+# Raw text body
+curl -i http://localhost:3000/echo \
+  -H 'Content-Type: text/plain' -d 'Hello Razor'
+
+# Unmatched GET requests serve files from public/
+curl -i http://localhost:3000/
+curl -i http://localhost:3000/hello.txt
+
+# Invalid request shape: returns 400 before the handler runs
+curl -i -X POST http://localhost:3000/users \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"A","age":17}'
+```
+
+The first request returns JSON such as:
 
 ```json
-{"userId":"42","name":"Ada Lovelace"}
+{"userId":"42","greeting":"Hello Ada"}
 ```
+
+Registered routes take priority over static files. Static fallback applies only
+to unmatched `GET` requests; a missing file returns `404`.
 
 Use `Response.json(body)` or `Response.text(body)` for a `200` response with an
 explicit representation. Both also accept a status code as their first argument,
