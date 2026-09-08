@@ -1,4 +1,4 @@
-# Razor - Full-Stack Web Framework
+# Razor: Full-Stack Web Framework
 
 Razor is my small, from-scratch HTTP server written in Java. I started it to better understand what frameworks usually hide: accepting socket connections, parsing raw HTTP, matching routes, and turning Java values into HTTP responses.
 
