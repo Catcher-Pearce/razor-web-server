@@ -1,6 +1,7 @@
 package io.github.catcherpearce.razorserver.server;
 
 import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
+import io.github.catcherpearce.razorserver.exception.MethodNotAllowedException;
 import io.github.catcherpearce.razorserver.exception.RouteNotFoundException;
 import io.github.catcherpearce.razorserver.http.HttpMethod;
 import io.github.catcherpearce.razorserver.http.HttpResponse;
@@ -10,6 +11,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -336,10 +338,64 @@ class RouteMatcherTest {
         assertSame(post, match(routes, "/users", HttpMethod.POST).matchedRoute());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "/users", "/users/{}"})
+    void existingPathWithUnsupportedMethodProducesMethodNotAllowed(String pattern) {
+        var routes = Map.of(pattern, Map.of(HttpMethod.POST, route(), HttpMethod.PUT, route()));
+        String target = pattern.replace("{}", "42");
+
+        MethodNotAllowedException exception = assertThrows(
+                MethodNotAllowedException.class,
+                () -> match(routes, target, HttpMethod.GET));
+
+        assertEquals(Set.of(HttpMethod.POST, HttpMethod.PUT), exception.allowedMethods());
+    }
+
     @Test
-    void unsupportedMethodCurrentlyProducesRouteNotFound() {
-        var routes = Map.of("/users", Map.of(HttpMethod.POST, route()));
-        assertThrows(RouteNotFoundException.class, () -> match(routes, "/users", HttpMethod.GET));
+    void queryDoesNotChangeMethodNotAllowedOrAllowedMethods() {
+        var routes = Map.of(
+                "/users", Map.of(HttpMethod.POST, route()),
+                "/accounts", Map.of(HttpMethod.PUT, route()));
+
+        MethodNotAllowedException exception = assertThrows(
+                MethodNotAllowedException.class,
+                () -> match(routes, "/users?expanded=true", HttpMethod.GET));
+
+        assertEquals(Set.of(HttpMethod.POST), exception.allowedMethods());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "/users", "/users/42", "/users/42/details/extra", "/missing"})
+    void missingEndpointProducesRouteNotFoundEvenWhenMethodIsUnsupported(String target) {
+        var routes = Map.of("/users/{}/details", Map.of(HttpMethod.POST, route()));
+
+        assertThrows(RouteNotFoundException.class, () -> match(routes, target, HttpMethod.GET));
+    }
+
+    @Test
+    void literalMethodMismatchSurvivesVariableBranchWithNoCompletePath() {
+        var routes = Map.of(
+                "/users/me", Map.of(HttpMethod.POST, route()),
+                "/users/{}/details", Map.of(HttpMethod.GET, route()));
+
+        MethodNotAllowedException exception = assertThrows(
+                MethodNotAllowedException.class,
+                () -> match(routes, "/users/me", HttpMethod.GET));
+
+        assertEquals(Set.of(HttpMethod.POST), exception.allowedMethods());
+    }
+
+    @Test
+    void variableMethodMismatchProducesMethodNotAllowedAfterLiteralDeadEnd() {
+        var routes = Map.of(
+                "/users/me/details", Map.of(HttpMethod.GET, route()),
+                "/users/{}", Map.of(HttpMethod.POST, route()));
+
+        MethodNotAllowedException exception = assertThrows(
+                MethodNotAllowedException.class,
+                () -> match(routes, "/users/me", HttpMethod.GET));
+
+        assertEquals(Set.of(HttpMethod.POST), exception.allowedMethods());
     }
 
     @Test

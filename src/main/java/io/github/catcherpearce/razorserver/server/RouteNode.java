@@ -82,4 +82,13 @@ public class RouteNode {
     public Route getRoute(HttpMethod method) {
         return routes.get(method);
     }
+
+    /**
+     * Retrieves the HTTP methods registered at this node.
+     *
+     * @return an immutable snapshot of the allowed methods
+     */
+    public Set<HttpMethod> getAllowedMethods() {
+        return Set.copyOf(routes.keySet());
+    }
 }

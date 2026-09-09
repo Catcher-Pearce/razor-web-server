@@ -1,6 +1,7 @@
 package io.github.catcherpearce.razorserver.server;
 
 import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
+import io.github.catcherpearce.razorserver.exception.MethodNotAllowedException;
 import io.github.catcherpearce.razorserver.exception.RouteNotFoundException;
 import io.github.catcherpearce.razorserver.http.HttpMethod;
 
@@ -25,6 +26,7 @@ class RouteMatcher {
     private final Map<String, String> queryParams;
     private final String[] requestRoute;
     private final List<String> pathVariables = new ArrayList<>();
+    private final HashSet<HttpMethod> allowedMethods = new HashSet();
 
     /**
      * Prepares the path segments and query parameters for one request.
@@ -78,11 +80,17 @@ class RouteMatcher {
      * @throws RouteNotFoundException if no complete match supports the requested
      *                                method, including when the path exists only
      *                                for other methods
+     *
+     * @throws MethodNotAllowedException If none of the matches found include the
+     *                                specified method from the request.
      */
     RouteMatch match() {
         RouteNode matchedRoute = backtrack(root, 0);
 
         if (matchedRoute == null) {
+            if (!allowedMethods.isEmpty()) {
+                throw new MethodNotAllowedException(requestMethod, path, allowedMethods);
+            }
             throw new RouteNotFoundException(path);
         }
 
@@ -115,7 +123,12 @@ class RouteMatcher {
         RouteNode bestPath = null;
 
         if (i == requestRoute.length) {
-            return currNode.getRoute(requestMethod) != null ? currNode : null;
+            if (currNode.getRoute(requestMethod) != null) {
+                return currNode;
+            } else {
+                allowedMethods.addAll(currNode.getAllowedMethods());
+                return null;
+            }
         }
 
         RouteNode literalChild = currNode.getLiteralChild(requestRoute[i]);
