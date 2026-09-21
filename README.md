@@ -21,6 +21,7 @@ It is still a work in progress, but the basic request-to-response path is up and
 - Error responses for malformed requests, missing routes, unsupported media types, and handler failures
 - Concurrent request handling with a bounded thread pool
 - Request-body validation with `@NotNull`, `@Min`, `@Max`, and `@Size`
+- Proxy configuration with adding trusted subnets and client IP identification
 - Automated tests for HTTP parsing, routing, query parameters, route patterns, and static files
 
 ## Example usage
