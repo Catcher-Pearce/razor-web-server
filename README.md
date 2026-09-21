@@ -177,6 +177,8 @@ flowchart TD
     parser -->|HttpRequest| dispatcher[RequestDispatcher]
     dispatcher --> matcher[RouteMatcher]
     matcher -->|RouteMatch| mapper[RequestMapper]
+    mapper -->|Check trusted proxies| proxy[ProxyHandler]
+    proxy -->|Client IP| mapper
     mapper -->|ServerRequest| handler[Route handler]
     handler --> response[HttpResponse]
     matcher -->|No matching route| fallback{Static serving configured<br/>and GET request?}
