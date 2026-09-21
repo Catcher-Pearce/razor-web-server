@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +38,11 @@ class ServerEngineTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CountDownLatch closed = new CountDownLatch(1);
         Socket socket = new Socket() {
+            @Override
+            public InetAddress getInetAddress() {
+                return InetAddress.getLoopbackAddress();
+            }
+
             @Override
             public InputStream getInputStream() {
                 return new ByteArrayInputStream(request.getBytes(StandardCharsets.UTF_8));

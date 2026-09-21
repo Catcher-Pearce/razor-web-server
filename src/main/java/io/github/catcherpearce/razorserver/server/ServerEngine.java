@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.io.PushbackInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -132,7 +133,7 @@ final class ServerEngine {
                 HttpParser parser =
                         new HttpParser(input);
 
-                HttpRequest parsedRequest = parser.parse();
+                HttpRequest parsedRequest = parser.parse(clientSocket.getInetAddress().getHostAddress());
                 response = requestDispatcher.handleRequest(parsedRequest);
             } catch (HttpException e) {
                 e.printStackTrace();
@@ -154,8 +155,8 @@ final class ServerEngine {
 }
 
     private ExecutorService buildExecutor() {
-        int corePoolSize = 5;
-        int maxPoolSize = 10;
+        int corePoolSize = 10;
+        int maxPoolSize = 20;
         long keepAliveTime = 60L;
 
         int queueCapacity = 100;

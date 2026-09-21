@@ -2,6 +2,7 @@ package io.github.catcherpearce.razorserver.server;
 
 import io.github.catcherpearce.razorserver.exception.RouteNotFoundException;
 import io.github.catcherpearce.razorserver.file_serving.StaticFileHandler;
+import io.github.catcherpearce.razorserver.http.ProxyHandler;
 import io.github.catcherpearce.razorserver.validation.RequestShape;
 import io.github.catcherpearce.razorserver.http.HttpMethod;
 import io.github.catcherpearce.razorserver.http.HttpRequest;
@@ -10,6 +11,7 @@ import io.github.catcherpearce.razorserver.exception.DuplicateRouteException;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -113,5 +115,14 @@ public class RequestDispatcher {
      */
     public void serveStaticFiles(Path root) {
         staticFileHandler = new StaticFileHandler(root);
+    }
+
+    /**
+     * Configures the proxy handler to obtain client ip in request mapping.
+     *
+     * @param allowedSubnets List of allowed subnets the server can trust as a proxy
+     */
+    public void configureProxy(List<String> allowedSubnets) {
+        requestMapper.proxyHandler = new ProxyHandler(allowedSubnets);
     }
 }

@@ -19,5 +19,6 @@ public record HttpRequest (
     String path,
     String version,
     Map<String, String> headers,
-    String body
+    String body,
+    String remoteIp
 ) {}

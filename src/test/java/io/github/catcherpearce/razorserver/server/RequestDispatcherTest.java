@@ -3,6 +3,7 @@ package io.github.catcherpearce.razorserver.server;
 import io.github.catcherpearce.razorserver.exception.DuplicateRouteException;
 import io.github.catcherpearce.razorserver.exception.InvalidRoutePatternException;
 import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
+import io.github.catcherpearce.razorserver.exception.MethodNotAllowedException;
 import io.github.catcherpearce.razorserver.exception.RequestBodyDeserializationException;
 import io.github.catcherpearce.razorserver.exception.RequestValidationException;
 import io.github.catcherpearce.razorserver.exception.RouteNotFoundException;
@@ -21,12 +22,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class RequestDispatcherTest {
+    private static final String REMOTE_IP = "192.168.1.10";
     private final RequestDispatcher dispatcher = new RequestDispatcher();
 
     @TempDir
@@ -55,7 +59,7 @@ class RequestDispatcherTest {
         Map<String, String> headers = Map.of("content-type", "text/plain");
 
         dispatcher.handleRequest(new HttpRequest(HttpMethod.POST,
-                "/teams/red/users/42?search=Ada+Lovelace&symbol=%26", "HTTP/1.1", headers, "hello"));
+                "/teams/red/users/42?search=Ada+Lovelace&symbol=%26", "HTTP/1.1", headers, "hello", REMOTE_IP));
 
         ServerRequest mapped = captured.get();
         assertNotNull(mapped);
@@ -63,6 +67,8 @@ class RequestDispatcherTest {
         assertEquals(Map.of("team", "red", "user", "42"), mapped.pathVariables());
         assertEquals(Map.of("search", "Ada Lovelace", "symbol", "&"), mapped.queryParams());
         assertEquals(headers, mapped.headers());
+        assertEquals(REMOTE_IP, mapped.remoteId());
+        assertEquals(REMOTE_IP, mapped.clientId());
         assertEquals("hello", mapped.body());
     }
 
@@ -124,8 +130,10 @@ class RequestDispatcherTest {
         dispatcher.createRoute("/users", HttpMethod.GET, request -> Response.noContent(), null);
         assertThrows(RouteNotFoundException.class,
                 () -> dispatcher.handleRequest(request(HttpMethod.GET, "/missing")));
-        assertThrows(RouteNotFoundException.class,
+        MethodNotAllowedException exception = assertThrows(MethodNotAllowedException.class,
                 () -> dispatcher.handleRequest(request(HttpMethod.POST, "/users")));
+        assertEquals(405, exception.statusCode());
+        assertEquals(Set.of(HttpMethod.GET), exception.allowedMethods());
     }
 
     @Test
@@ -133,7 +141,7 @@ class RequestDispatcherTest {
         dispatcher.createRoute("/users", HttpMethod.POST,
                 request -> Response.text(request.bodyAs(NameRequest.class).name), NameRequest.class);
         HttpResponse response = dispatcher.handleRequest(new HttpRequest(HttpMethod.POST, "/users", "HTTP/1.1",
-                Map.of("content-type", "application/json"), "{\"name\":\"Ada\"}"));
+                Map.of("content-type", "application/json"), "{\"name\":\"Ada\"}", REMOTE_IP));
         assertEquals("Ada", response.body());
     }
 
@@ -143,9 +151,9 @@ class RequestDispatcherTest {
         dispatcher.createRoute("/users", HttpMethod.GET, request -> fail("Invalid requests must not reach handler"), NameRequest.class);
 
         assertThrows(RequestBodyDeserializationException.class, () -> dispatcher.handleRequest(
-                new HttpRequest(HttpMethod.GET, "/users", "HTTP/1.1", Map.of("content-type", "application/json"), "{bad")));
+                new HttpRequest(HttpMethod.GET, "/users", "HTTP/1.1", Map.of("content-type", "application/json"), "{bad", REMOTE_IP)));
         assertThrows(RequestValidationException.class, () -> dispatcher.handleRequest(
-                new HttpRequest(HttpMethod.GET, "/users", "HTTP/1.1", Map.of("content-type", "application/json"), "{}")));
+                new HttpRequest(HttpMethod.GET, "/users", "HTTP/1.1", Map.of("content-type", "application/json"), "{}", REMOTE_IP)));
         assertThrows(UnsupportedMediaTypeException.class,
                 () -> dispatcher.handleRequest(request(HttpMethod.GET, "/users")));
     }
@@ -204,7 +212,32 @@ class RequestDispatcherTest {
     }
 
     private HttpRequest request(HttpMethod method, String path) {
-        return new HttpRequest(method, path, "HTTP/1.1", Map.of(), "");
+        return new HttpRequest(method, path, "HTTP/1.1", Map.of(), "", REMOTE_IP);
+    }
+
+    @Test
+    void configuredIpv6ProxyResolvesClientIpForHandler() {
+        dispatcher.configureProxy(List.of("2001:db8:1::/64", "10.0.0.0/8"));
+        dispatcher.createRoute("/", HttpMethod.GET, Response::ok, null);
+        HttpRequest request = new HttpRequest(HttpMethod.GET, "/", "HTTP/1.1",
+                Map.of("x-forwarded-for", " 2001:db8:2::10 , 10.0.0.1 "), "", "2001:db8:1::1");
+
+        ServerRequest mapped = assertInstanceOf(ServerRequest.class, dispatcher.handleRequest(request).body());
+
+        assertEquals("2001:db8:1::1", mapped.remoteId());
+        assertEquals("2001:db8:2::10", mapped.clientId());
+    }
+
+    @Test
+    void untrustedIpv6PeerCannotOverrideClientIp() {
+        dispatcher.configureProxy(List.of("2001:db8:1::/64"));
+        dispatcher.createRoute("/", HttpMethod.GET, Response::ok, null);
+        HttpRequest request = new HttpRequest(HttpMethod.GET, "/", "HTTP/1.1",
+                Map.of("x-forwarded-for", "203.0.113.10"), "", "2001:db8:2::1");
+
+        ServerRequest mapped = assertInstanceOf(ServerRequest.class, dispatcher.handleRequest(request).body());
+
+        assertEquals("2001:db8:2::1", mapped.clientId());
     }
 
     public static class NameRequest implements RequestShape {

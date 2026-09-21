@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HttpParserTest {
+    private static final String REMOTE_IP = "192.168.1.10";
 
     @Test
     public void parsesRequestLineHeadersAndBody() {
@@ -36,6 +37,7 @@ public class HttpParserTest {
         assertEquals("text/plain", request.headers().get("content-type"));
         assertEquals("5", request.headers().get("content-length"));
         assertEquals("hello", request.body());
+        assertEquals(REMOTE_IP, request.remoteIp());
     }
 
     @Test
@@ -276,7 +278,7 @@ public class HttpParserTest {
                 rawRequest.getBytes(StandardCharsets.UTF_8)
         );
 
-        return new HttpParser(inputStream).parse();
+        return new HttpParser(inputStream).parse(REMOTE_IP);
     }
 
     private void assertMalformed(String rawRequest) {

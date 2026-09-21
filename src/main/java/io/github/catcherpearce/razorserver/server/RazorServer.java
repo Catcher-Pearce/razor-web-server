@@ -4,6 +4,7 @@ import io.github.catcherpearce.razorserver.validation.RequestShape;
 import io.github.catcherpearce.razorserver.http.HttpMethod;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Public API for configuring and managing an HTTP server.
@@ -37,6 +38,11 @@ public class RazorServer {
      */
     public void stop() {
         serverEngine.stop();
+    }
+
+    /** todo add comments */
+    public void configureProxy(List<String> allowedSubnets) {
+        requestDispatcher.configureProxy(allowedSubnets);
     }
 
     /**

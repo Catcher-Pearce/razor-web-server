@@ -24,6 +24,8 @@ public record ServerRequest(
         Map<String, String> pathVariables,
         Map<String, String> queryParams,
         Map<String, String> headers,
+        String remoteId,
+        String clientId,
         Object body
 ) {
     /**

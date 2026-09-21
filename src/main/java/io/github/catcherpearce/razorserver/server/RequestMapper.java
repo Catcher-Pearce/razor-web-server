@@ -1,10 +1,13 @@
 package io.github.catcherpearce.razorserver.server;
 
 import io.github.catcherpearce.razorserver.http.HttpRequest;
+import io.github.catcherpearce.razorserver.http.ProxyHandler;
 import io.github.catcherpearce.razorserver.validation.RequestDeserializer;
 import io.github.catcherpearce.razorserver.validation.RequestShape;
 import io.github.catcherpearce.razorserver.validation.RequestValidator;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,6 +19,7 @@ import java.util.Map;
 public class RequestMapper {
     private final RequestDeserializer requestDeserializer;
     private final RequestValidator requestValidator;
+    ProxyHandler proxyHandler = null;
 
     public RequestMapper() {
         this.requestDeserializer = new RequestDeserializer();
@@ -53,12 +57,24 @@ public class RequestMapper {
             body = requestShape;
         }
 
+        String clientIp = request.remoteIp();
+        String forwardedFor = request.headers().get("x-forwarded-for");
+
+        if (proxyHandler != null && forwardedFor != null && proxyHandler.checkIp(request.remoteIp())) {
+            List<String> xForwardedForList = Arrays.stream(forwardedFor.split(","))
+                    .map(String::trim)
+                    .toList();
+            clientIp = proxyHandler.findClientIp(xForwardedForList);
+        }
+
         return new ServerRequest(
                 request.method(),
                 request.path(),
                 pathVariables,
                 queryParams,
                 request.headers(),
+                request.remoteIp(),
+                clientIp,
                 body
         );
     }

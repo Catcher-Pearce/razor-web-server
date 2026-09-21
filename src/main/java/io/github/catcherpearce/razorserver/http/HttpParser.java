@@ -57,7 +57,7 @@ public class HttpParser {
      * @throws RuntimeException if reading fails with an {@link IOException},
      *         which is retained as the cause
      */
-    public HttpRequest parse() {
+    public HttpRequest parse(String remoteIp) {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         Deque<Integer> lastFour = new ArrayDeque<>();
         int requestLineBytes = 0;
@@ -197,7 +197,8 @@ public class HttpParser {
                     path,
                     version,
                     headers,
-                    body
+                    body,
+                    remoteIp
             );
 
         } catch (IllegalArgumentException | IndexOutOfBoundsException | NullPointerException e) {

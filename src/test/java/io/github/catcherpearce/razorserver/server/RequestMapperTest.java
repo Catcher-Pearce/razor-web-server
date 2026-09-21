@@ -5,6 +5,7 @@ import io.github.catcherpearce.razorserver.exception.RequestValidationException;
 import io.github.catcherpearce.razorserver.exception.UnsupportedMediaTypeException;
 import io.github.catcherpearce.razorserver.http.HttpMethod;
 import io.github.catcherpearce.razorserver.http.HttpRequest;
+import io.github.catcherpearce.razorserver.http.ProxyHandler;
 import io.github.catcherpearce.razorserver.validation.RequestShape;
 import io.github.catcherpearce.razorserver.validation.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RequestMapperTest {
+    private static final String REMOTE_IP = "192.168.1.10";
     private final RequestMapper mapper = new RequestMapper();
 
     @ParameterizedTest
@@ -27,7 +29,7 @@ class RequestMapperTest {
         Map<String, String> headers = Map.of("content-type", "text/plain", "x-request-id", "abc");
         Map<String, String> variables = Map.of("id", "42");
         Map<String, String> query = Map.of("search", "Ada Lovelace");
-        HttpRequest request = new HttpRequest(HttpMethod.POST, "/users/42", "HTTP/1.1", headers, body);
+        HttpRequest request = new HttpRequest(HttpMethod.POST, "/users/42", "HTTP/1.1", headers, body, REMOTE_IP);
 
         ServerRequest mapped = mapper.map(new Route(ignored -> fail("Mapping must not invoke the handler"),
                 null, List.of("id")), request, variables, query);
@@ -38,6 +40,8 @@ class RequestMapperTest {
                 () -> assertEquals(variables, mapped.pathVariables()),
                 () -> assertEquals(query, mapped.queryParams()),
                 () -> assertEquals(headers, mapped.headers()),
+                () -> assertEquals(REMOTE_IP, mapped.remoteId()),
+                () -> assertEquals(REMOTE_IP, mapped.clientId()),
                 () -> assertEquals(body, mapped.body())
         );
     }
@@ -87,9 +91,46 @@ class RequestMapperTest {
                 () -> map(NameRequest.class, Map.of(), "{\"name\":\"Ada\"}"));
     }
 
+    @Test
+    void ignoresForwardedHeaderWhenProxyHandlingIsNotConfigured() {
+        ServerRequest mapped = map(null, Map.of("x-forwarded-for", "203.0.113.10"), "");
+
+        assertEquals(REMOTE_IP, mapped.clientId());
+    }
+
+    @Test
+    void ignoresForwardedHeaderFromUntrustedPeer() {
+        mapper.proxyHandler = new ProxyHandler(List.of("10.0.0.0/8"));
+
+        ServerRequest mapped = map(null, Map.of("x-forwarded-for", "203.0.113.10"), "");
+
+        assertEquals(REMOTE_IP, mapped.clientId());
+    }
+
+    @Test
+    void usesRemoteIpWhenTrustedPeerHasNoForwardedHeader() {
+        mapper.proxyHandler = new ProxyHandler(List.of("192.168.1.0/24"));
+
+        ServerRequest mapped = map(null, Map.of(), "");
+
+        assertEquals(REMOTE_IP, mapped.clientId());
+    }
+
+    @Test
+    void resolvesForwardedClientAndPreservesRemoteIp() {
+        mapper.proxyHandler = new ProxyHandler(List.of("192.168.1.0/24"));
+        Map<String, String> headers = Map.of("x-forwarded-for", " 203.0.113.10 , 192.168.1.20 ");
+
+        ServerRequest mapped = map(null, headers, "");
+
+        assertEquals("203.0.113.10", mapped.clientId());
+        assertEquals(REMOTE_IP, mapped.remoteId());
+        assertEquals(headers, mapped.headers());
+    }
+
     private ServerRequest map(Class<? extends RequestShape> shape, Map<String, String> headers, String body) {
         return mapper.map(new Route(ignored -> fail("Mapping must not invoke the handler"), shape, List.of()),
-                new HttpRequest(HttpMethod.POST, "/users", "HTTP/1.1", headers, body), Map.of(), Map.of());
+                new HttpRequest(HttpMethod.POST, "/users", "HTTP/1.1", headers, body, REMOTE_IP), Map.of(), Map.of());
     }
 
     public static class NameRequest implements RequestShape {
