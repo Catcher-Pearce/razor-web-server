@@ -1,5 +1,6 @@
 package io.github.catcherpearce.razorserver.server;
 
+import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
 import io.github.catcherpearce.razorserver.http.HttpRequest;
 import io.github.catcherpearce.razorserver.http.ProxyHandler;
 import io.github.catcherpearce.razorserver.validation.RequestDeserializer;
@@ -65,6 +66,10 @@ public class RequestMapper {
                     .map(String::trim)
                     .toList();
             clientIp = proxyHandler.findClientIp(xForwardedForList);
+        }
+
+        if (!request.headers().containsKey("host")) {
+            throw new MalformedHttpRequestException("Missing host header.");
         }
 
         return new ServerRequest(

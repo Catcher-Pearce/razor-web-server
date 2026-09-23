@@ -1,5 +1,6 @@
 package io.github.catcherpearce.razorserver.server;
 
+import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
 import io.github.catcherpearce.razorserver.exception.RequestBodyDeserializationException;
 import io.github.catcherpearce.razorserver.exception.RequestValidationException;
 import io.github.catcherpearce.razorserver.exception.UnsupportedMediaTypeException;
@@ -22,11 +23,19 @@ class RequestMapperTest {
     private static final String REMOTE_IP = "192.168.1.10";
     private final RequestMapper mapper = new RequestMapper();
 
+    @Test
+    void rejectsRequestWithoutHostHeader() {
+        MalformedHttpRequestException exception = assertThrows(MalformedHttpRequestException.class,
+                () -> map(null, Map.of(), ""));
+
+        assertEquals("Missing host header.", exception.getMessage());
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"plain text", "{invalid json", "{\"name\":null}"})
     void preservesRawBodyAndMetadataWithoutARequestShape(String body) {
-        Map<String, String> headers = Map.of("content-type", "text/plain", "x-request-id", "abc");
+        Map<String, String> headers = Map.of("host", "localhost", "content-type", "text/plain", "x-request-id", "abc");
         Map<String, String> variables = Map.of("id", "42");
         Map<String, String> query = Map.of("search", "Ada Lovelace");
         HttpRequest request = new HttpRequest(HttpMethod.POST, "/users/42", "HTTP/1.1", headers, body, REMOTE_IP);
@@ -48,16 +57,16 @@ class RequestMapperTest {
 
     @Test
     void acceptsRawBodyWithoutContentType() {
-        ServerRequest mapped = map(null, Map.of(), "raw body");
+        ServerRequest mapped = map(null, Map.of("host", "localhost"), "raw body");
         assertEquals("raw body", mapped.body());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"application/json", "application/json; charset=utf-8"})
     void deserializesAndValidatesRegisteredShape(String contentType) {
-        ServerRequest mapped = map(NameRequest.class, Map.of("content-type", contentType), "{\"name\":\"Ada\"}");
+        ServerRequest mapped = map(NameRequest.class, Map.of("host", "localhost", "content-type", contentType), "{\"name\":\"Ada\"}");
         assertEquals("Ada", assertInstanceOf(NameRequest.class, mapped.body()).name);
-        assertEquals(Map.of("content-type", contentType), mapped.headers());
+        assertEquals(Map.of("host", "localhost", "content-type", contentType), mapped.headers());
         assertEquals(HttpMethod.POST, mapped.method());
         assertEquals("/users", mapped.path());
         assertEquals(Map.of(), mapped.pathVariables());
@@ -68,13 +77,13 @@ class RequestMapperTest {
     @ValueSource(strings = {"", "{broken", "[]"})
     void propagatesDeserializationFailures(String body) {
         assertThrows(RequestBodyDeserializationException.class,
-                () -> map(NameRequest.class, Map.of("content-type", "application/json"), body));
+                () -> map(NameRequest.class, Map.of("host", "localhost", "content-type", "application/json"), body));
     }
 
     @Test
     void rejectsDeserializedBodyThatFailsValidation() {
         RequestValidationException exception = assertThrows(RequestValidationException.class,
-                () -> map(NameRequest.class, Map.of("content-type", "application/json"), "{}"));
+                () -> map(NameRequest.class, Map.of("host", "localhost", "content-type", "application/json"), "{}"));
         assertEquals(List.of("name must not be null"), exception.violations());
     }
 
@@ -82,18 +91,18 @@ class RequestMapperTest {
     @ValueSource(strings = {"text/plain", "application/xml"})
     void rejectsUnsupportedContentTypeForRegisteredShape(String contentType) {
         assertThrows(UnsupportedMediaTypeException.class,
-                () -> map(NameRequest.class, Map.of("content-type", contentType), "{\"name\":\"Ada\"}"));
+                () -> map(NameRequest.class, Map.of("host", "localhost", "content-type", contentType), "{\"name\":\"Ada\"}"));
     }
 
     @Test
     void rejectsMissingContentTypeForRegisteredShape() {
         assertThrows(UnsupportedMediaTypeException.class,
-                () -> map(NameRequest.class, Map.of(), "{\"name\":\"Ada\"}"));
+                () -> map(NameRequest.class, Map.of("host", "localhost"), "{\"name\":\"Ada\"}"));
     }
 
     @Test
     void ignoresForwardedHeaderWhenProxyHandlingIsNotConfigured() {
-        ServerRequest mapped = map(null, Map.of("x-forwarded-for", "203.0.113.10"), "");
+        ServerRequest mapped = map(null, Map.of("host", "localhost", "x-forwarded-for", "203.0.113.10"), "");
 
         assertEquals(REMOTE_IP, mapped.clientId());
     }
@@ -102,7 +111,7 @@ class RequestMapperTest {
     void ignoresForwardedHeaderFromUntrustedPeer() {
         mapper.proxyHandler = new ProxyHandler(List.of("10.0.0.0/8"));
 
-        ServerRequest mapped = map(null, Map.of("x-forwarded-for", "203.0.113.10"), "");
+        ServerRequest mapped = map(null, Map.of("host", "localhost", "x-forwarded-for", "203.0.113.10"), "");
 
         assertEquals(REMOTE_IP, mapped.clientId());
     }
@@ -111,7 +120,7 @@ class RequestMapperTest {
     void usesRemoteIpWhenTrustedPeerHasNoForwardedHeader() {
         mapper.proxyHandler = new ProxyHandler(List.of("192.168.1.0/24"));
 
-        ServerRequest mapped = map(null, Map.of(), "");
+        ServerRequest mapped = map(null, Map.of("host", "localhost"), "");
 
         assertEquals(REMOTE_IP, mapped.clientId());
     }
@@ -119,7 +128,7 @@ class RequestMapperTest {
     @Test
     void resolvesForwardedClientAndPreservesRemoteIp() {
         mapper.proxyHandler = new ProxyHandler(List.of("192.168.1.0/24"));
-        Map<String, String> headers = Map.of("x-forwarded-for", " 203.0.113.10 , 192.168.1.20 ");
+        Map<String, String> headers = Map.of("host", "localhost", "x-forwarded-for", " 203.0.113.10 , 192.168.1.20 ");
 
         ServerRequest mapped = map(null, headers, "");
 
