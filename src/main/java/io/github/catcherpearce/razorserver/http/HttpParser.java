@@ -3,6 +3,7 @@ package io.github.catcherpearce.razorserver.http;
 import io.github.catcherpearce.razorserver.exception.MalformedHttpRequestException;
 
 import java.io.*;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -57,7 +58,7 @@ public class HttpParser {
      * @throws RuntimeException if reading fails with an {@link IOException},
      *         which is retained as the cause
      */
-    public HttpRequest parse(String remoteIp) {
+    public HttpRequest parse(String remoteIp) throws SocketTimeoutException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         Deque<Integer> lastFour = new ArrayDeque<>();
         int requestLineBytes = 0;
@@ -203,6 +204,8 @@ public class HttpParser {
 
         } catch (IllegalArgumentException | IndexOutOfBoundsException | NullPointerException e) {
             throw new MalformedHttpRequestException("Malformed HTTP request", e);
+        } catch (SocketTimeoutException e) {
+            throw e;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

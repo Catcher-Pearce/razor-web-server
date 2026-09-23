@@ -2,6 +2,7 @@ package io.github.catcherpearce.razorserver.server;
 
 import io.github.catcherpearce.razorserver.exception.HttpException;
 import io.github.catcherpearce.razorserver.exception.MethodNotAllowedException;
+import io.github.catcherpearce.razorserver.exception.RequestTimeoutException;
 import io.github.catcherpearce.razorserver.http.HttpParser;
 import io.github.catcherpearce.razorserver.http.HttpRequest;
 import io.github.catcherpearce.razorserver.http.HttpResponse;
@@ -13,7 +14,7 @@ import java.io.OutputStream;
 import java.io.PushbackInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.List;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
  */
 final class ServerEngine {
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
+    private static final int CLIENT_TIMEOUT_SECONDS = 10;
     private final int port;
     private final RequestDispatcher requestDispatcher;
     private final ResponseWriter responseWriter = new ResponseWriter();
@@ -63,10 +65,19 @@ final class ServerEngine {
 
     void dispatchClient(Socket clientSocket) throws IOException {
         try {
+            clientSocket.setSoTimeout(CLIENT_TIMEOUT_SECONDS * 1000);
             executor.execute(() -> handleClient(clientSocket));
         } catch (RejectedExecutionException exception) {
-            // No worker owns this connection when submission is rejected.
+            // No worker owns the rejected connection.
             clientSocket.close();
+        } catch (IOException exception) {
+            // Socket setup failed before dispatch.
+            try {
+                clientSocket.close();
+            } catch (IOException closeException) {
+                exception.addSuppressed(closeException);
+            }
+            throw exception;
         }
     }
 
@@ -142,6 +153,8 @@ final class ServerEngine {
                 System.err.println("Unhandled request error: " + e.getMessage());
                 e.printStackTrace();
                 response = Response.internalServerError("Internal Server Error");
+            } catch (SocketTimeoutException e) {
+                response = createErrorResponse(new RequestTimeoutException());
             }
 
             byte[] byteResponse = responseWriter.write(response);
